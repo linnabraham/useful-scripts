@@ -1,0 +1,4 @@
+#!/bin/bash    
+
+filename=`echo "$1" | cut -d '.' -f 1`
+pdftk "$1" input_pw "$2" output $filename"_unsecured.pdf" && rm "$1"

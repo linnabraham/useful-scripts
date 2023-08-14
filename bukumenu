@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#        "select id,URL,trim(tags,',') from bookmarks order by tags"
+getbookmarks() {
+    sqlite3 -column -separator $'\t' ~/.local/share/buku/bookmarks.db \
+"select id,URL,trim(tags,','),metadata from bookmarks order by tags"
+}
+
+#menu=$(getbookmarks | rofi -dmenu -i -width 1000 -p '> ')
+menu=$(getbookmarks | dmenu -l 10 -i -p '>')
+id="${menu%% *}"
+
+buku -o "${id}"
