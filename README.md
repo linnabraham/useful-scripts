@@ -15,7 +15,7 @@ This is a repository of scripts that I frequently use on Linux.
 - `musiclogger` - Script for logging music that I explicitly play with `mpd` to a csv file.
 - `kp`       - A script for quickly killing running processes with the help of process name and `fzf`.
 - `change-backlight.py` - Adapted script for changing display brightness in logarithmic steps and also set a lower limit.
-- `pdfunlock`- A small script for replacing a secured pdf with its unlocked version.
+- `pdfunlock`- A small script for replacing a secured pdf with its unlocked version using user provided password.
 - `openbox-screenshot.sh` - Script that is bound to my PrintScr key to capture the entire screen to image and also to clipboard.
 - `maimpick` - LukeSmith's wrapper script for using the `maim` utility for taking screenshots with `dmenu`.
 - `trello-cmd` - Script for working with Trello from the command line. A few of the functions require `trello` command from the trello-cli.
