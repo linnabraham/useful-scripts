@@ -1,0 +1,136 @@
+#!/bin/bash
+# A shell script for basic cli interaction with Trello using the official trello API
+# This script currently makes use of several environment variables that I have exported in my shell
+# I have a board and list that has been set as the default using these environment variables for simplicity of usage
+# By selecting a list like "Todo" as the default, I can use Trello as any regular task manager but one that is much more powerful
+
+
+# Authenticate with Trello API
+authenticate() {
+    curl -s -X POST -d "key=$TRELLO_KEY&token=$TRELLO_TOKEN" "https://api.trello.com/1/tokens/$TRELLO_TOKEN/webhooks/"
+}
+
+# Function to get the ID of a list by name
+get_list_id() {
+    local board_id="$1"
+    local list_name="$2"
+
+    # Get the lists for the board
+    local lists=$(curl --silent --request GET \
+        --url "https://api.trello.com/1/boards/${board_id}/lists" \
+        --data-urlencode "fields=name" \
+        --data-urlencode "key=${TRELLO_KEY}" \
+        --data-urlencode "token=${TRELLO_TOKEN}")
+
+    # Loop through the lists and find the ID of the one with the matching name
+    local list_id=""
+    for row in $(echo "${lists}" | jq -r '.[] | @base64'); do
+        local json=$(echo "${row}" | base64 --decode | jq -r '.')
+        local name=$(echo "${json}" | jq -r '.name')
+        local id=$(echo "${json}" | jq -r '.id')
+
+        if [ "${name}" = "${list_name}" ]; then
+            list_id="${id}"
+            break
+        fi
+    done
+
+    echo "${list_id}"
+}
+
+get_card_id() {
+  local board_name=$1
+  local list_name=$2
+  local card_name=$3
+
+  # Get the ID of the board and list
+  local board_id=$1
+
+  local list_id=$2
+
+  # Get all the cards in the list
+  local cards=$(curl --silent --request GET "https://api.trello.com/1/lists/$list_id/cards?key=$TRELLO_KEY&token=$TRELLO_TOKEN")
+
+  # Filter the cards by name and extract the ID of the matching card
+  local card_id=$(echo "$cards" | jq -r ".[] | select(.name == \"$card_name\") | .id")
+
+  echo "$card_id"
+}
+
+
+# Move a card to a new list
+move_card() {
+    local card_id="$1"
+    local list_id="$2"
+    curl -s -X PUT -d "idList=$list_id&key=$TRELLO_KEY&token=$TRELLO_TOKEN" "https://api.trello.com/1/cards/$card_id"
+}
+
+delete_card(){
+
+# Send the DELETE request to the Trello API
+curl -X DELETE -sS "https://api.trello.com/1/cards/${1}?key=$TRELLO_KEY&token=$TRELLO_TOKEN"
+}
+
+get_label_id() {
+    local board_id="$1"
+    local label_name="$2"
+    local url="https://api.trello.com/1/boards/$board_id/labels?key=$TRELLO_KEY&token=$TRELLO_TOKEN"
+
+    # Use curl to get the labels for the board
+    local response=$(curl --silent --request GET "$url")
+
+    # Use jq to filter the response to only the label with the matching name
+    local label_id=$(echo "$response" | jq -r ".[] | select(.name == \"$label_name\") | .id")
+
+    # Return the label ID
+    echo "$label_id"
+}
+
+attach_label(){
+curl --request PUT \
+     --url 'https://api.trello.com/1/cards/'"${1}"'?idLabels='"${2}"'&key='"${TRELLO_KEY}"'&token='"$TRELLO_TOKEN"''
+}
+
+show_cards(){
+
+CARD_TITLES=$(curl -s "https://api.trello.com/1/lists/${1}/cards?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}")
+
+echo $CARD_TITLES | jq -r '.[] | .name  + " " +  (if (.labels | length) > 1 then [.labels[]?.name | "\u001b[32m" + . + "\u001b[0m" | select(. != null)] | join(", ") else (.labels[]?.name| "\u001b[32m" + . + "\u001b[0m")// ""end)'
+}
+
+
+case "$1" in
+    "ls-cards")
+        show_cards "$listId"
+        ;;
+
+    "mv-card")
+	cardid=$(get_card_id "$BOARD_ID" "$listId" "$2")
+	list2Id="$(get_list_id "$BOARD_ID" "$3")"
+	move_card $cardid $list2Id #&>/dev/null
+        echo "Status: $?"
+        echo "Card moved to $3"
+        ;;
+
+    "add-card")
+        # delegate some of the functionality to the trello command provided by the trello-cli package
+        trello add-card -b "$BOARD_NAME" -l "$listName" "$2" -p bottom
+        ;;
+
+    "delete-card")
+	cardid=$(get_card_id "$BOARD_ID" "$listId" "$2")
+	delete_card "$cardid" &>/dev/null
+	;;
+
+    "add-card-w/label")
+	labelid=$(get_label_id "$BOARD_ID" "$3")
+	trello add-card -b $BOARD_NAME -l "$listName" "$2" -g "$labelid"
+	;;
+
+    "attach-label")
+	labelid=$(get_label_id "$BOARD_ID" "$3")
+	cardid=$(get_card_id "$BOARD_ID" "$listId" "$2")
+        attach_label $cardid $labelid
+        ;;
+
+esac
