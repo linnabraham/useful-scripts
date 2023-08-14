@@ -10,9 +10,10 @@ file -i "$(dirname "$1")"/* \
         $2 ~ "^image" {
             files[cnt++] = $1;
             if ($1 == f)
-                n = cnt;
+                org_pos = cnt;
         }
         END {
-            for (i = 0; i < cnt; i++)
+                n = cnt - org_pos + 1; 
+            for (i = cnt - 1 ; i >= 0; i--)
                 print files[i] | "sxiv -i -n " n;
         }'
