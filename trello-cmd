@@ -100,16 +100,20 @@ echo $CARD_TITLES | jq -r '.[] | .name  + " " +  (if (.labels | length) > 1 then
 
 
 case "$1" in
-    "ls-cards")
+    "ls")
         show_cards "$listId"
+        ;;
+
+    "done")
+	cardid=$(get_card_id "$BOARD_ID" "$listId" "$2")
+	list2Id="$(get_list_id "$BOARD_ID" "Done")"
+	move_card $cardid $list2Id &>/dev/null
         ;;
 
     "mv-card")
 	cardid=$(get_card_id "$BOARD_ID" "$listId" "$2")
 	list2Id="$(get_list_id "$BOARD_ID" "$3")"
-	move_card $cardid $list2Id #&>/dev/null
-        echo "Status: $?"
-        echo "Card moved to $3"
+	move_card $cardid $list2Id &>/dev/null
         ;;
 
     "add-card")
@@ -130,7 +134,7 @@ case "$1" in
     "attach-label")
 	labelid=$(get_label_id "$BOARD_ID" "$3")
 	cardid=$(get_card_id "$BOARD_ID" "$listId" "$2")
-        attach_label $cardid $labelid
+        attach_label $cardid $labelid &>/dev/null
         ;;
 
 esac
