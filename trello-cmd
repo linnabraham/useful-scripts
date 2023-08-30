@@ -117,18 +117,19 @@ case "$1" in
         ;;
 
     "add-card")
+        if [[ "$3" == "" ]]; then
         # delegate some of the functionality to the trello command provided by the trello-cli package
         trello add-card -b "$BOARD_NAME" -l "$listName" "$2" -p bottom
+        else
+            # If a third argument is received assume that it is the label
+	labelid=$(get_label_id "$BOARD_ID" "$3")
+	trello add-card -b $BOARD_NAME -l "$listName" "$2" -g "$labelid"
+        fi
         ;;
 
     "delete-card")
 	cardid=$(get_card_id "$BOARD_ID" "$listId" "$2")
 	delete_card "$cardid" &>/dev/null
-	;;
-
-    "add-card-w/label")
-	labelid=$(get_label_id "$BOARD_ID" "$3")
-	trello add-card -b $BOARD_NAME -l "$listName" "$2" -g "$labelid"
 	;;
 
     "attach-label")
