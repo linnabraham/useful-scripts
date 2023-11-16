@@ -3,8 +3,9 @@
 while true; do
     battery_status=$(upower -i /org/freedesktop/UPower/devices/battery_BAT0)
     battery_level=$(echo "$battery_status" | grep -oP 'percentage:\s+\K\d+')
+    charging_status=$(echo "$battery_status" | grep -oP 'state:\s+\K\w+')
     
-    if [ "$battery_level" -le 20 ]; then
+    if [ "$charging_status" != "charging" ] && [ "$battery_level" -le 20 ]; then
         notify-send "Low Battery Alert" "Battery level is $battery_level%"
     fi
     
