@@ -19,3 +19,5 @@ This is a repository of scripts that I frequently use on Linux.
 - `openbox-screenshot.sh` - Script that is bound to my PrintScr key to capture the entire screen to image and also to clipboard.
 - `maimpick` - LukeSmith's wrapper script for using the `maim` utility for taking screenshots with `dmenu`.
 - `trello-cmd` - Script for working with Trello from the command line. A few of the functions require `trello` command from the trello-cli.
+- `battery-lev.sh` - Script to run in the background and alert about low battery. Useful if mostly working in full screen mode.
+- `mpc_control` - Script for controlling music (with mpc)  using dmenu interface 
