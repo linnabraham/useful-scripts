@@ -169,7 +169,7 @@ case $1 in
     
     TITLE=$(mpc playlist | $DMENU);
     if [ "$TITLE" = "" ]; then exit; fi
-    POS=$(mpc playlist | grep -n "$TITLE" | awk -F: '{print $1}')
+    POS=$(mpc playlist | grep -n "$TITLE" | awk -F: '{print $1}' | cut -d$'\n' -f1)
     mpc play $POS;
     ;;
 
