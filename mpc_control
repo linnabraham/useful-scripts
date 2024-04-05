@@ -232,8 +232,85 @@ case $1 in
     done
     ;;
 
+    -c|--composer)
+    
+    while true; do
+
+        ARTIST="$(mpc list albumartist | sort -f | $DMENU)";
+        if [ "$ARTIST" = "" ]; then $ESC_ACTION; fi
+        
+        while true; do
+
+            ALBUMS=$(mpc list album albumartist "$ARTIST" | sort -f);
+            ALBUM=$(echo -e "replace all\nadd all\n--------------------------\n$ALBUMS" | $DMENU);
+            if [ "$ALBUM" = "" ]; then $ESC_ACTION;
+            
+            elif [ "$ALBUM" = "replace all" ]; then
+                CUR_SONG=$(mpc current)
+                mpc clear
+                mpc find albumartist "$ARTIST" | mpc add 
+                if [ -n "$CUR_SONG" ]; then mpc play; fi
+                $ESC_ACTION
+            elif [ "$ALBUM" = "add all" ]; then 
+                mpc find albumartist "$ARTIST" | mpc add
+                $ESC_ACTION
+            fi
+            
+            while true; do
+                
+                TITLES=$(mpc list title albumartist "$ARTIST" album "$ALBUM")
+                TITLE=$(echo -e "replace all\nadd all\n--------------------------\n$TITLES" | $DMENU);
+                if [ "$TITLE" = "" ]; then $ESC_ACTION
+                elif [ "$TITLE" = "replace all" ]; then
+                    CUR_SONG=$(mpc current)
+                    mpc clear;
+                    mpc find albumartist "$ARTIST" album "$ALBUM" | mpc add 
+                    if [ -n "$CUR_SONG" ]; then mpc play; fi
+                    $ESC_ACTION
+                elif [ "$TITLE" = "add all" ]; then
+                    mpc find albumartist "$ARTIST" album "$ALBUM" | mpc add 
+                    $ESC_ACTION
+                
+                fi
+
+                while true; do
+                    DEC=$(echo -e "add after current and play\nadd after current\nreplace\nadd at the end" | $DMENU);
+                    case $DEC in 
+
+                        "")
+                        $ESC_ACTION
+                        ;;
+
+                        "add after current and play")
+                        addaftercurrentandplay "$(mpc find albumartist "$ARTIST" album "$ALBUM" title "$TITLE" | head -1 )"
+                        ;;
+
+                        "add after current")
+                        addaftercurrent "$(mpc find albumartist "$ARTIST" album "$ALBUM" title "$TITLE" | head -1 )"
+                        ;;
+
+                        "replace")
+                        CUR_SONG=$(mpc current)
+                        mpc clear
+                        mpc find albumartist "$ARTIST" album "$ALBUM" title "$TITLE" | head -1 | mpc add
+                        if [ -n "$CUR_SONG" ]; then mpc play; fi
+                        ;;
+                        
+                        "add at the end")
+                        mpc find albumartist "$ARTIST" album "$ALBUM" title "$TITLE" | head -1 | mpc add
+                        ;;
+
+                    esac
+                    $ESC_ACTION
+                done
+            done
+        done
+    done
+    ;;
+
     -h|--help)
     echo -e "-a, --artist        search for artist, then album, then title"
+    echo -e "-c, --composer     search for composer, then album, then title"
     echo -e "-t, --track        search for a single track in the whole database"
     echo -e "-p, --playlist        search for a playlist load it"
     echo -e "-j, --jump        jump to another song in the current playlist"         
