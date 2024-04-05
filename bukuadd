@@ -2,7 +2,7 @@
 # This script is for importing the selected url to buku database and send a
 # desktop notification. It is to be bound to a shortcut key
 
-url=$(xsel -o)
+url=$(xclip -o --selection primary)
 echo $url
 notify-send "Adding bookmark for $url"
-xfce4-terminal -e "buku -w 'vim' -a "$url"" # only this stupid thing works
+alacritty -e buku -w 'vim' -a "$url"
