@@ -156,6 +156,15 @@ case $1 in
     addaftercurrentandplay "$SONG"
     ;;
 
+    -n|--nexttrack)
+        
+    TITLE=$(mpc list title | sort -f | $DMENU)
+    if [ "$TITLE" = "" ]; then exit; fi
+    
+    SONG=$(mpc find title "$TITLE" | head -1) 
+    addaftercurrent "$SONG"
+    ;;
+
     -p|--playlist)
     PLAYLIST=$(mpc lsplaylists | $DMENU);
     if [ "$PLAYLIST" = "" ]; then exit; fi
