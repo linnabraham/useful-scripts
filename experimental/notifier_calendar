@@ -1,0 +1,26 @@
+#!/bin/bash
+# Show the events for today if there are else show event scheduled three days into future
+
+nevents=$(khal --no-color list --day-format "" --once --format "{start-date} {title}" now eod 2>/dev/null | wc -l)
+
+if [[ $nevents -eq 0 ]];
+
+then
+
+    nevents3d=$(khal --no-color list --day-format "" --once --format "{start-date} {title}" tomorrow 2d 2>/dev/null | wc -l)
+
+    if [[ $nevents3d -ne 0 ]];
+    then
+    notify-send -t 0 "Events in 3 days" "$(khal --no-color list --day-format "" --once --format "{start-date} {title}" tomorrow 2d)"
+    else
+    notify-send  "No events for next three days"
+    fi
+
+else
+
+    events=$(khal --no-color list --day-format "" --once --format "{start-date} {start-time} {title}" now eod 2>/dev/null)
+    notify-send -t 0 "Events Scheduled for Today" "$events"
+    notify-send -t 0 "Events in 3 days" "$(khal --no-color list --day-format "" --once --format "{start-date} {title}" tomorrow 2d)"
+fi
+
+
