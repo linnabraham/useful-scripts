@@ -1,0 +1,10 @@
+[Unit]
+Description=Download wallpaper
+Wants=bingwall.timer
+
+[Service]
+Type=simple
+ExecStart=/home/linn/.local/bin/bing-rotate.sh 
+
+[Install]
+WantedBy=multi-user.target
