@@ -21,3 +21,12 @@ This is a repository of scripts that I frequently use on Linux.
 - `trello-cmd` - Script for working with Trello from the command line. A few of the functions require `trello` command from the trello-cli.
 - `battery-lev.sh` - Script to run in the background and alert about low battery. Useful if mostly working in full screen mode.
 - `mpc_control` - Script for controlling music (with mpc)  using dmenu interface 
+
+## Setup
+
+- To setup the `bing-rotate.sh` script to automatically download the bing wallpaper of the day, everyday copy the included template files to your 
+`/etc/systemd/user/` and run the following commands
+```
+systemctl --user enable bingwall.timer
+systemctl --user start bingwall.timer
+```
