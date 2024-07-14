@@ -1,0 +1,71 @@
+#!/bin/bash
+# Script for tracking the time that I have spent on my computer each day
+# The timer automatically stops if I am away from my computer for longer
+# than a specified duration
+# This script is meant to be used with my polybar setup
+
+# Initialize variables
+total_active_time=0  # Total active time in seconds
+last_idle_time=$(xprintidle)  # Last recorded idle time in milliseconds
+last_update_time=$(date +%s)  # Last update timestamp in seconds
+idle_threshold=$((3 * 60 * 1000))  # 3 minutes in milliseconds
+last_reset_file="/tmp/last_reset_date.txt"
+
+# Function to format time (seconds) into HH:MM:SS
+format_time() {
+    local T=$1
+    local H=$((T / 3600))
+    local M=$(( (T % 3600) / 60))
+    local S=$((T % 60))
+    printf "%02d:%02d:%02d\n" $H $M $S
+}
+
+icon=""
+
+reset_timer() {
+    echo "Resetting timer.."
+    total_active_time=0
+    last_idle_time=$(xprintidle)
+    last_update_time=$(date +%s)
+}
+
+if [[ ! -f "$last_reset_file" ]]; then
+    date +%Y-%m-%d > "$last_reset_file"
+fi
+
+# Trap SIGUSR1 signal to reset the timer
+trap reset_timer SIGUSR1
+
+while true; do
+    current_date=$(date +%Y-%m-%d)
+    last_reset_date=$(cat "$last_reset_file")
+
+    if [[ "$current_date" != "$last_reset_date" ]]; then
+	reset_timer
+	echo "$current_date" > "$last_reset_file"
+    fi
+    current_idle_time=$(xprintidle)  # Get current idle time in milliseconds
+    current_time=$(date +%s)  # Get current timestamp in seconds
+
+    # Calculate the time passed since the last update
+    elapsed_time=$((current_time - last_update_time))
+
+    # Check if the idle time has exceeded the threshold
+    if [ $current_idle_time -gt $idle_threshold ]; then
+        # Idle time is significant, consider it as a period of inactivity
+        total_active_time=$((total_active_time + elapsed_time - (current_idle_time - last_idle_time) / 1000))
+    else
+        # Idle time is not significant, consider it as active time
+        total_active_time=$((total_active_time + elapsed_time))
+    fi
+
+    # Update last idle time and last update time
+    last_idle_time=$current_idle_time
+    last_update_time=$current_time
+
+    formatted_time=$(format_time $total_active_time)
+
+    echo "$formatted_time"
+
+    sleep 1
+done
