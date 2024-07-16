@@ -4,6 +4,8 @@ This is a repository of scripts that I frequently use on Linux.
 
 ## Scripts
 
+The root directory contains the following scripts:
+
 - `bukuadd`  - Script for saving url from any browser to my `buku` database.
 - `bukumenu` - Script for pulling up a searchable dmenu interface for my browser independent bookmarks.
 - `blurlock.sh` - Script for applying a gaussian blur to your current screen and make it the lock screen.
@@ -23,6 +25,22 @@ This is a repository of scripts that I frequently use on Linux.
 - `battery-lev.sh` - Script to run in the background and alert about low battery. Useful if mostly working in full screen mode.
 - `mpc_control` - Script for controlling music (with mpc)  using dmenu interface 
 
+### Experimental
+I have kept some scripts in the `experimental` folder since they are not production ready :-D.
+
+- `notifier_calendar`: Script used to display calendar notifications
+- `active-time`: Script used for displaying my daily computer usage time in polybar
+
+### Device-specific scripts
+Some scripts have hard-coded filepaths that are meant to be used on one particular machine. I have segregated them for the time being until I can make it device agnostic.
+
+I have the `experimental/arch-thinkpad`, where I have the following files:
+
+- `mpc-add-recent.sh`: Add the music files that I have added or modified in the last 30 days to my current mpd queue.
+
+In the `experimental/arch-hp/` directory I have the following scripts:
+
+- `mpc-add-recent.sh`: Same function as the other one
 ## Setup
 
 - To setup the `bing-rotate.sh` script to automatically download the bing wallpaper of the day, everyday copy the included template files to your 
