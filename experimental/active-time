@@ -10,6 +10,7 @@ last_idle_time=$(xprintidle)  # Last recorded idle time in milliseconds
 last_update_time=$(date +%s)  # Last update timestamp in seconds
 idle_threshold=$((3 * 60 * 1000))  # 3 minutes in milliseconds
 last_reset_file="/tmp/last_reset_date.txt"
+log_file="/home/linn/.local/share/linn/active_time_log.csv"  # Path to the log file
 
 # Function to format time (seconds) into HH:MM:SS
 format_time() {
@@ -29,6 +30,18 @@ reset_timer() {
     last_update_time=$(date +%s)
 }
 
+# Function to log active time to CSV
+log_active_time() {
+    local date=$1
+    local time=$2
+    echo "$date,$time" >> "$log_file"
+}
+
+# Initialize log file with header if it doesn't exist
+if [[ ! -f "$log_file" ]]; then
+    echo "Date,Active Time" > "$log_file"
+fi
+
 if [[ ! -f "$last_reset_file" ]]; then
     date +%Y-%m-%d > "$last_reset_file"
 fi
@@ -41,6 +54,8 @@ while true; do
     last_reset_date=$(cat "$last_reset_file")
 
     if [[ "$current_date" != "$last_reset_date" ]]; then
+        formatted_time=$(format_time $total_active_time)
+        log_active_time "$last_reset_date" "$formatted_time"
 	reset_timer
 	echo "$current_date" > "$last_reset_file"
     fi
