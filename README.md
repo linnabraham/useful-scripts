@@ -6,6 +6,7 @@ This is a repository of scripts that I frequently use on Linux.
 
 - `bukuadd`  - Script for saving url from any browser to my `buku` database.
 - `bukumenu` - Script for pulling up a searchable dmenu interface for my browser independent bookmarks.
+- `blurlock.sh` - Script for applying a gaussian blur to your current screen and make it the lock screen.
 - `lfub`     - Wrapper script to open LF file manager with Ueberzug support.
 - `rotdir`   - LukeSmith's script for rotating all images in a directory when using `sxiv`.
 - `rofi-screenshot` - Adapted script for taking screenshots or screenrecording using `ffmpeg` 
