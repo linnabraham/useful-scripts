@@ -1,0 +1,55 @@
+#!/bin/env python
+import requests
+import xml.etree.ElementTree as ET
+import sys, os
+
+def make_filename(title):
+    import re
+    # Remove special characters and replace spaces with underscores
+    filename = re.sub(r'[^\w\s-]', '', title).strip()
+    filename = re.sub(r'[\s]+', '_', filename)
+
+    # Limit the filename to a reasonable length (e.g., 255 characters)
+    filename = filename[:255]
+
+    # You might want to add an extension to the filename, e.g., ".pdf"
+    filename = f"{filename}.pdf"
+    return filename 
+
+def get_paper_name(arxiv_id):
+    # Construct the arXiv API URL
+    arxiv_api_url = f'https://export.arxiv.org/api/query?id_list={arxiv_id}'
+
+    # Send a GET request to the API
+    response = requests.get(arxiv_api_url)
+
+    if response.status_code == 200:
+        # Parse the response XML
+        root = ET.fromstring(response.text)
+
+        # Define the XML namespace
+        namespace = {'atom': 'http://www.w3.org/2005/Atom'}
+
+        # Find the 'entry' element within the specified namespace
+        entry = root.find(".//atom:entry", namespaces=namespace)
+
+        title = entry.find(".//atom:title", namespaces=namespace).text
+
+        return title
+    else:
+        return None
+
+# Example usage
+arxiv_id = '1707.08567'  # Replace with the arXiv ID you want to query
+arxiv_id = sys.argv[1]
+arxiv_id = os.path.basename(arxiv_id)
+arxiv_id = arxiv_id.strip('.pdf')
+print(arxiv_id)
+#sys.exit(0)
+paper_name = get_paper_name(arxiv_id)
+
+if paper_name:
+    print(f'Paper Title: {paper_name}')
+    print(make_filename(paper_name))
+else:
+    print('Paper not found or API request failed.')
