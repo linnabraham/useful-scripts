@@ -11,6 +11,7 @@ last_update_time=$(date +%s)  # Last update timestamp in seconds
 idle_threshold=$((3 * 60 * 1000))  # 3 minutes in milliseconds
 last_reset_file="/tmp/last_reset_date.txt"
 log_file="/home/linn/.local/share/linn/active_time_log.csv"  # Path to the log file
+lock_file="/tmp/active_time_tracker.lock"
 
 # Function to format time (seconds) into HH:MM:SS
 format_time() {
@@ -49,6 +50,13 @@ fi
 # Trap SIGUSR1 signal to reset the timer
 trap reset_timer SIGUSR1
 
+# Ensure only one instance runs at a time
+exec 9>"$lock_file"
+if ! flock -n 9; then
+    echo "Another instance is already running."
+    exit 1
+fi
+
 while true; do
     current_date=$(date +%Y-%m-%d)
     last_reset_date=$(cat "$last_reset_file")
@@ -84,3 +92,6 @@ while true; do
 
     sleep 1
 done
+
+# Release the lock
+flock -u 9
