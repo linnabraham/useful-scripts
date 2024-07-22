@@ -50,6 +50,19 @@ fi
 # Trap SIGUSR1 signal to reset the timer
 trap reset_timer SIGUSR1
 
+terminate_script() {
+    current_date=$(date +%Y-%m-%d)
+    formatted_time=$(format_time $total_active_time)
+    log_active_time "$current_date" "$formatted_time"
+    echo "Script terminated. Logged active time: $formatted_time"
+    # Release the lock
+    flock -u 9
+    exit 0
+}
+
+# Trap SIGINT and SIGTERM signals to log active time before exiting
+trap terminate_script SIGINT SIGTERM
+
 # Ensure only one instance runs at a time
 exec 9>"$lock_file"
 if ! flock -n 9; then
