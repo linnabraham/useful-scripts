@@ -41,12 +41,10 @@ for FILE in "${FILE_ARRAY[@]}"; do
     FILENAME=$(basename "$FILE")
     SYMLINK="$TARGET_DIR/$FILENAME"
     
-    # Create a relative path from the target directory to the file
-    RELATIVE_PATH=$(realpath --relative-to="$TARGET_DIR" "$FILE")
-
+    # Use absolute path for the symlink
     if [[ ! -e "$SYMLINK" ]]; then
-        echo "Creating symlink: $SYMLINK -> $RELATIVE_PATH"
-        ln -s "$RELATIVE_PATH" "$SYMLINK"
+        echo "Creating symlink: $SYMLINK -> $FILE"
+        ln -s "$FILE" "$SYMLINK"
     fi
 done
 
