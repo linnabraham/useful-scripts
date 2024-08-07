@@ -1,0 +1,3 @@
+[submodule "voidrice"]
+	path = voidrice
+	url = git@github.com:LukeSmithxyz/voidrice.git
