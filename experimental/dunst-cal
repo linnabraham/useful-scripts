@@ -1,0 +1,3 @@
+#!/bin/bash
+# Show a three month calendar with the current data highlighted
+notify-send -t 30000 "3 Month Calendar" "$(cal -3 | sed -n "s/\<$(date +'%e')\>/<b><span color='red'>&<\/span><\/b>/2p; t; p")"
