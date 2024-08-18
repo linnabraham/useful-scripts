@@ -317,6 +317,31 @@ case $1 in
     done
     ;;
 
+    -g|--genre)
+
+        GENRE="$(mpc list Genre | sort -f | $DMENU)";
+
+	if [[ $GENRE != "" ]]; then
+
+	TITLES=$(mpc list title genre "$GENRE" | sort -f);
+	TITLE=$(echo -e "replace all\nadd all\n--------------------------\n$TITLES" | $DMENU);
+
+	if [ "$TITLE" = "replace all" ]; then
+	    CUR_SONG=$(mpc current)
+	    mpc clear
+	    mpc find genre "$GENRE" | mpc add 
+	    if [ -n "$CUR_SONG" ]; then mpc play; fi
+	elif [ "$TITLE" = "add all" ]; then 
+	    mpc find genre "$GENRE" | mpc add
+	    if [ -n "$CUR_SONG" ]; then mpc play; fi
+	elif [[ $TITLE != "" ]]; then
+	   SONG=$(mpc find title "$TITLE" | head -1)
+	   addaftercurrentandplay "$SONG"
+        fi
+	fi
+    ;;
+
+
     -h|--help)
     echo -e "-a, --artist        search for artist, then album, then title"
     echo -e "-c, --composer     search for composer, then album, then title"
@@ -324,6 +349,7 @@ case $1 in
     echo -e "-p, --playlist        search for a playlist load it"
     echo -e "-j, --jump        jump to another song in the current playlist"         
     echo -e "-l, --longplayer    search for album, then title"
+    echo -e "-g, --genre        search for genre, then title"
     
     
     
