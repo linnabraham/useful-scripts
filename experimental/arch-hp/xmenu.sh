@@ -11,15 +11,6 @@ Apps
 	Popcorn-Time	popcorntime
 	iBroadcast	mediasynclite
 Music
-	Pop		mpc clear; mpc find "(Genre == \"Pop\")" | mpc add; mpc play
-	Instrumental	mpc clear; mpc find "(Genre == \"Instrumental\")" | mpc add; mpc play
-	Jingles		mpc clear; mpc find "(Genre == \"Jingle\")" | mpc add; mpc play
-	Dance		mpc clear; mpc find "(Genre == \"Dance\")" | mpc add; mpc play
-	Country		mpc clear; mpc find "(Genre == \"Country\")" | mpc add; mpc play
-	Bollywood	mpc clear; mpc find "(Genre == \"Bollywood\")" | mpc add; mpc play
-	Alternative	mpc clear; mpc find "(Genre == \"Alternative\")" | mpc add; mpc play
-	Rock		mpc clear; mpc find "(Genre == \"Rock\")" | mpc add; mpc play
-	Mal Kavitha	mpc clear; mpc find "(Genre == \"Malayalam-Kavitha\")" | mpc add; mpc play
 	Malayalam	mpc clear; mpc ls fixed/A-Z_fixed | mpc add; mpc shuffle; mpc play
 	Tamil	        mpc clear; mpc ls fixed/tamil_fixed | mpc add; mpc shuffle; mpc play
 	Hindi	        mpc clear; mpc ls fixed/hindi_fixed | mpc add; mpc shuffle; mpc play
