@@ -101,7 +101,7 @@ while true; do
 
     formatted_time=$(format_time $total_active_time)
 
-    echo "$formatted_time"
+    echo "$formatted_time" >  /tmp/active_time.out
 
     sleep 1
 done
