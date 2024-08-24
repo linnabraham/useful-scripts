@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Run without arguments prints the current status of notifications
+# If the --toggle switch is passed, toggles the notification status
+
+case "$1" in
+    --toggle)
+        dunstctl set-paused toggle
+        ;;
+     *)
+         if [[ "$(dunstctl is-paused)" = "true" ]]; then
+            echo " "
+        else
+            echo ""
+        fi
+        ;;
+esac

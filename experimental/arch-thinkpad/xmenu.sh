@@ -6,6 +6,7 @@ Apps
 	Amplenote	gtk-launch brave-pfphgelppkenhllngngioolkaeelhlmi-Default
 	Picard	picard
 	Zotero	gtk-launch zotero
+	Terminal	xfce4-terminal
 Music
 	Recent	mpc-add-recent.sh
 	All	mpc clear; mpc ls fixed/ | mpc add; mpc shuffle; mpc play

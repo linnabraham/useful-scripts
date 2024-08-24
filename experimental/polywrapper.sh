@@ -26,4 +26,4 @@ else
   done
 fi
 
-(sleep 5s; polybar-msg action "#discharge.module_toggle" && polybar-msg action "#memory.module_toggle" && polybar-msg action "#cpu.module_toggle" && polybar-msg action "#temperature.module_toggle")
+(sleep 1s; polybar-msg action "#discharge.module_toggle" && polybar-msg action "#memory.module_toggle" && polybar-msg action "#cpu.module_toggle" && polybar-msg action "#temperature.module_toggle")
