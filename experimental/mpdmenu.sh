@@ -93,8 +93,20 @@ else
     #echo "single mode turned on"
 fi
 }
+shuffle(){
+	$MPC shuffle
+}
+repeat(){
+	repeat_mode=$(mpc repeat | grep -o 'repeat: \w*' | cut -d' ' -f2)
+	if [[ "$repeat_mode" == "off" ]]; then
+		$MPC repeat on
+	else
+		$MPC repeat off
+	fi
+}
+
 while true; do
-    action=$(DMENU "Clear\nAdd\nRemove\nJump\nToggle\nPlay\nPause\nStop\nNext\nPrev\nSingle" "Do you want to")
+	action=$(DMENU "Clear\nAdd\nJump\nPlay\nPause\nStop\nNext\nPrev\nSingle\nRandom\nRepeat" "Do you want to")
     case $action in
         Clear) $MPC clear;;
         Add) add;;
@@ -106,7 +118,9 @@ while true; do
         Stop) stop;;
         Next) next;;
         Prev) prev;;
-        Single) single;;
+		Single) single;;
+		Random) shuffle;;
+		Repeat) repeat;;
         "") exit 0;;
     esac
 done
