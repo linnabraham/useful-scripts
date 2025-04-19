@@ -1,6 +1,6 @@
 #!/bin/bash
 
-JOURNAL_DIR="$HOME/work/writings/diary"
+JOURNAL_DIR="$HOME/work/writings/journal"
 ENTRIES_DIR="$JOURNAL_DIR/entries"
 ENTRIES_TEX="$JOURNAL_DIR/entries.tex"
 
