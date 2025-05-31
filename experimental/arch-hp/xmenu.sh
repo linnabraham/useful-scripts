@@ -8,6 +8,7 @@ Apps
 	Popcorn-Time	popcorntime
 	Terminal	xfce4-terminal
 	Telegram	telegram-desktop
+	ZapZap		zapzap
 Appmenu	jgmenu_run
 Music
 	Player		mpdevil

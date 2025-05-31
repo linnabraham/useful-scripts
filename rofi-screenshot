@@ -90,7 +90,7 @@ rvrtf() {
 rvstf() {
   countdown
   dt=$1
-  ffcast -q rec "$screenshot_directory/$dt.mp4"
+  ffmpeg -f x11grab -video_size 1920x1080 -i :0.0 -pix_fmt yuv420p "$screenshot_directory/$dt.mp4"
   notify-send --app-name="screenshot" "Screenshot" "Saved to ${screenshot_directory//${HOME}/~}/$dt.mp4"
 }
 

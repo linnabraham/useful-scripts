@@ -47,11 +47,11 @@ open_img () {
         count="$(listfiles "$1" | grep -nF "$1")"
     fi
     if [ -n "$count" ]; then
-        sxiv -i -n "${count%%:*}" -- < "$tmp"
+        nsxiv -i -n "${count%%:*}" -- < "$tmp"
     else
         # Fallback in case the file didn't have a valid extension, or we
         # couldn't find it inside the list
-        sxiv -- "$@"
+        nsxiv -- "$@"
     fi
 }
 
