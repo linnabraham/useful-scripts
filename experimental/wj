@@ -1,0 +1,99 @@
+#!/bin/bash
+
+required_packages=(
+    tufte-book
+    ulem
+    soul
+    hyperref
+    todonotes
+    xargs
+)
+
+missing=()
+
+for pkg in "${required_packages[@]}"; do
+    if ! kpsewhich "$pkg.sty" > /dev/null && ! kpsewhich "$pkg.cls" > /dev/null; then
+        missing+=("$pkg")
+    fi
+done
+
+if [ "${#missing[@]}" -ne 0 ]; then
+    echo "❌ Missing LaTeX packages:"
+    for pkg in "${missing[@]}"; do
+        echo "  - $pkg"
+    done
+else
+    echo "✅ All required LaTeX packages are installed."
+fi
+
+JOURNAL_DIR="$HOME/work/writings/work-journal"
+mkdir -p "$JOURNAL_DIR"
+ENTRIES_DIR="$JOURNAL_DIR/entries"
+ENTRIES_TEX="$JOURNAL_DIR/entries.tex"
+JOURNAL_TEX="$JOURNAL_DIR/journal.tex"
+
+DATE=$(date +%Y-%m-%d)
+DATE_ENTRY=$(date +"%B %d, %Y")  # e.g., "June 02, 2025"
+FILENAME="${DATE}.tex"
+FILEPATH="$ENTRIES_DIR/$FILENAME"
+
+mkdir -p "$ENTRIES_DIR"
+
+# Initialize journal.tex if not present
+if [ ! -f "$JOURNAL_TEX" ]; then
+    echo "📔 Initializing journal.tex"
+    cat <<EOF > "$JOURNAL_TEX"
+\\documentclass{tufte-book}
+\\usepackage[normalem]{ulem}
+\\usepackage{soul}
+\\usepackage{hyperref}
+\\usepackage{todonotes}
+\\setcounter{tocdepth}{10}
+\\usepackage{xargs}
+\\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+
+\\newcommand{\nuni}{\marginnote{--- Not Urgent, Not Important}}
+\\newcommand{\uni}{\marginnote{--- Urgent, Not Important}}
+\\newcommand{\inu}{\marginnote{--- Not Urgent, Important}}
+\\newcommand{\iu}{\marginnote{--- Urgent, Important}}
+
+\\newcommandx{\itask}[2][1=]{\todo[color=white,bordercolor=white,inline,#1]{#2}}
+
+
+\\begin{document}
+
+\\input{entries.tex}
+
+\\listoftodos
+\\end{document}
+EOF
+
+fi
+# If entry already exists, just open it
+if [ -f "$FILEPATH" ]; then
+    echo "📓 Entry for $DATE already exists. Opening it..."
+    nvim "$FILEPATH"
+    exit 0
+fi
+
+# Create the new entry file with no title generated
+cat <<EOF > "$FILEPATH"
+% !TEX root = ../journal.tex
+\\section{$DATE_ENTRY}
+\\noindent\rule{\textwidth}{0.4pt}
+EOF
+
+# Add to entries.tex if not already included
+if ! grep -q "$FILENAME" "$ENTRIES_TEX"; then
+    echo "\\input{entries/${FILENAME}}" >> "$ENTRIES_TEX"
+fi
+
+# Open the new entry
+nvim "$FILEPATH"
+
+echo "✅ New entry saved: $FILENAME"
