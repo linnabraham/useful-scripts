@@ -59,8 +59,9 @@ if [ ! -f "$JOURNAL_TEX" ]; then
 
 \\newcommand{\nuni}{\marginnote{--- Not Urgent, Not Important}}
 \\newcommand{\uni}{\marginnote{--- Urgent, Not Important}}
-\\newcommand{\inu}{\marginnote{--- Not Urgent, Important}}
-\\newcommand{\iu}{\marginnote{--- Urgent, Important}}
+\\newcommand{\nui}{\marginnote{--- Not Urgent, Important}}
+\\newcommand{\ui}{\marginnote{--- Urgent, Important}}
+
 
 \\newcommandx{\itask}[2][1=]{\todo[color=white,bordercolor=white,inline,#1]{#2}}
 
@@ -85,6 +86,8 @@ fi
 cat <<EOF > "$FILEPATH"
 % !TEX root = ../journal.tex
 \\section{$DATE_ENTRY}
+\\subsection{To-Do}
+
 \\noindent\rule{\textwidth}{0.4pt}
 EOF
 
