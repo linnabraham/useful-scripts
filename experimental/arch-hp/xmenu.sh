@@ -2,13 +2,13 @@
 cat <<EOF | xmenu | sh &
 Apps
 	PCManFM-Qt	pcmanfm-qt
-	Amplenote	gtk-launch brave-pfphgelppkenhllngngioolkaeelhlmi-Default
 	Brave	        brave
 	Zotero	        gtk-launch zotero
 	Popcorn-Time	popcorntime
 	Terminal	xfce4-terminal
-	Telegram	telegram-desktop
-	ZapZap		zapzap
+	Telegram	gtk-launch org.telegram.desktop.desktop
+	Picard		picard
+	Code	code
 Appmenu	jgmenu_run
 Music
 	Player		mpdevil
