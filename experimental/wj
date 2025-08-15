@@ -49,8 +49,10 @@ if [ ! -f "$JOURNAL_TEX" ]; then
 \\usepackage{soul}
 \\usepackage{hyperref}
 \\usepackage{todonotes}
+\\usepackage{xcolor}
 \\setcounter{tocdepth}{10}
 \\usepackage{xargs}
+\\usepackage{amssymb}
 \\hypersetup{
     colorlinks=true,
     linkcolor=blue,
@@ -63,8 +65,7 @@ if [ ! -f "$JOURNAL_TEX" ]; then
 \\newcommand{\nui}{\marginnote{--- Not Urgent, Important}}
 \\newcommand{\ui}{\marginnote{--- Urgent, Important}}
 
-
-\\newcommandx{\itask}[2][1=]{\todo[color=white,bordercolor=white,inline,#1]{#2}}
+\newcommand{\mn}[1]{\marginnote{#1}}
 
 
 \\begin{document}
@@ -88,7 +89,15 @@ cat <<EOF > "$FILEPATH"
 % !TEX root = ../journal.tex
 \\section{$DATE_ENTRY}
 \\def\\tododateprefix{$DATE_PREFIX}
+\\quicknav
+\\login{}
+\\begin{itemize}
+	\\item 
+\\end{itemize}
+
 \\subsection{To-Do}
+
+\\logout{}
 
 \\noindent\rule{\textwidth}{0.4pt}
 EOF
