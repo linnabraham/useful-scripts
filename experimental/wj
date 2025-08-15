@@ -44,7 +44,7 @@ mkdir -p "$ENTRIES_DIR"
 if [ ! -f "$JOURNAL_TEX" ]; then
     echo "📔 Initializing journal.tex"
     cat <<EOF > "$JOURNAL_TEX"
-\\documentclass{tufte-book}
+\\documentclass[notoc]{tufte-book}
 \\usepackage[normalem]{ulem}
 \\usepackage{soul}
 \\usepackage{hyperref}
