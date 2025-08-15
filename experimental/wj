@@ -34,6 +34,7 @@ JOURNAL_TEX="$JOURNAL_DIR/journal.tex"
 
 DATE=$(date +%Y-%m-%d)
 DATE_ENTRY=$(date +"%B %d, %Y")  # e.g., "June 02, 2025"
+DATE_PREFIX=$(date +%Y%m%d)
 FILENAME="${DATE}.tex"
 FILEPATH="$ENTRIES_DIR/$FILENAME"
 
@@ -86,6 +87,7 @@ fi
 cat <<EOF > "$FILEPATH"
 % !TEX root = ../journal.tex
 \\section{$DATE_ENTRY}
+\\def\\tododateprefix{$DATE_PREFIX}
 \\subsection{To-Do}
 
 \\noindent\rule{\textwidth}{0.4pt}
