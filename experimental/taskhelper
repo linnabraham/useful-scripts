@@ -1,0 +1,12 @@
+#!/bin/bash
+DEFAULT_FILTERS=(-archive -someday +PENDING -BLOCKED)
+
+task limit:none "$@" "${DEFAULT_FILTERS[@]}" 'project == ""'
+projects=$(task projects | awk 'NR>2 && !/^[0-9]+ projects/ {print $1}' | tail -n +3 | paste -sd " " -)
+
+# define colors
+RED="\033[31m"
+RESET="\033[0m"
+
+echo -e "Hiding projects ${RED}$projects${RESET}"
+echo -e "Hiding tasks with tags ${RED}${DEFAULT_FILTERS[*]}${RESET}"
