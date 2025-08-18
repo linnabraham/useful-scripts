@@ -1,4 +1,38 @@
 #!/bin/bash
+# Show a summary if run without args
+# Show project details if run with project name as first input
+# Show completed tasks if additionally given -a
+
+project="$1"
+shift
+
+showdone=0
+
+for arg in "$@"; do
+if [ "$arg" == "-a" ]; then
+showdone=1
+fi
+done
+
+if [ -n "$project" ]; then
+if [ "$showdone" -eq 1 ]; then
+task projall project:"$project" | awk '
+NR==1 {print; next}  # keep header
+
+/ Pending /   {color="\033[32m"}      # set green for pending
+/ Completed / {color="\033[90m"}      # set gray for completed
+
+# If this line looks like a task row (ID or "- " in first column), color it
+/^[0-9-]/ {print color $0 "\033[0m"; next}
+
+# Otherwise (wrapped description line), also color it using the last chosen color
+{print color $0 "\033[0m"}
+'
+else
+task project:"$project"
+fi
+else
+	# No args given
 DEFAULT_FILTERS=(-archive -someday +PENDING -BLOCKED)
 
 task limit:none "$@" "${DEFAULT_FILTERS[@]}" 'project == ""'
@@ -10,3 +44,4 @@ RESET="\033[0m"
 
 echo -e "Hiding projects ${RED}$projects${RESET}"
 echo -e "Hiding tasks with tags ${RED}${DEFAULT_FILTERS[*]}${RESET}"
+fi
