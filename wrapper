@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Define the options
+options=("Artist" "Composer" "Track" "Next" "Playlist" "Jump" "Longplayer" "Genre")
+
+# Prompt the user to select a mode using wofi
+selected_mode=$(printf "%s\n" "${options[@]}" | wofi --dmenu --prompt "Select Mode:" --insensitive)
+
+# Check the selected mode and call your script accordingly
+case $selected_mode in
+    "Artist")
+        wmpc_control -a
+        ;;
+    "Composer")
+        wmpc_control -c
+        ;;
+    "Track")
+        wmpc_control -t
+        ;;
+    "Next")
+        wmpc_control -n
+        ;;
+    "Playlist")
+        wmpc_control -p
+        ;;
+    "Jump")
+        wmpc_control -j
+        ;;
+    "Longplayer")
+        wmpc_control -l
+        ;;
+    "Genre")
+        wmpc_control -g
+        ;;
+    *)
+        echo "Invalid mode selected."
+        ;;
+esac
