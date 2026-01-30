@@ -7,7 +7,7 @@
 # [ -z "$PLAYERS" ] && exit 0
 
 # # Find active (playing) player
-# PLAYER=$(mpris-ctl --player active list 2>/dev/null | head -n1)
+PLAYER=$(mpris-ctl --player active list 2>/dev/null | head -n1)
 
 # # Toggle play/pause on the selected player
 # [ -n "$PLAYER" ] && mpris-ctl --player "$PLAYER" pp
@@ -21,5 +21,19 @@
 # fi
 
 
-PLAYER="$(< /tmp/mpris-lastplayer)"
+#PLAYER="$(< /tmp/mpris-lastplayer)"
+
+LASTFILE=/tmp/mpris-lastplayer
+
+update_last() {
+    echo "$1" > "$LASTFILE"
+}
+
+get_last() {
+    [ -f "$LASTFILE" ] && cat "$LASTFILE" && PLAYER="$(< /tmp/mpris-lastplayer)"
+}
+
+get_last
+echo "PLAYER" - $PLAYER
 mpris-ctl --player "$PLAYER" pp
+update_last $PLAYER
