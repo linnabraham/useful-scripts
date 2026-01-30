@@ -1,0 +1,3 @@
+#!/bin/sh
+exec mamba run -n gcalcli-311 \
+  gcalcli --calendar "linn.official@gmail.com" --nocache remind
