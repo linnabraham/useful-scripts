@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# # Get list of all running MPRIS players (D-Bus service names)
+# PLAYERS=$(busctl --user | awk '/org.mpris.MediaPlayer2\./ {print $1}')
+
+# # Exit if no players
+# [ -z "$PLAYERS" ] && exit 0
+
+# # Find active (playing) player
+# PLAYER=$(mpris-ctl --player active list 2>/dev/null | head -n1)
+
+# # Toggle play/pause on the selected player
+# [ -n "$PLAYER" ] && mpris-ctl --player "$PLAYER" pp
+
+# # If no active player, pick the first running one
+# if [ -z "$PLAYER" ]; then
+#     PLAYER=$(echo "$PLAYERS" | head -n1)
+#     mpris-ctl --player inactive "$PLAYER" pp
+# # else
+# #     mpris-ctl --player active "$PLAYER" pp
+# fi
+
+
+PLAYER="$(< /tmp/mpris-lastplayer)"
+mpris-ctl --player "$PLAYER" pp

@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+LASTFILE=/tmp/mpris-lastplayer
+
+update_last() {
+    echo "$1" > "$LASTFILE"
+}
+
+get_last() {
+    [ -f "$LASTFILE" ] && cat "$LASTFILE"
+}
+
+# Escape JSON strings
+json_escape() {
+    printf '%s' "$1" | sed 's/"/\\"/g'
+}
+
+# Get all running MPRIS players (numeric PID only)
+PLAYERS=$(busctl --user | awk '/org.mpris.MediaPlayer2\./ && $2 ~ /^[0-9]+$/ {print $1}')
+
+# Exit if no players
+[ -z "$PLAYERS" ] && echo '{"text":"■ No player","tooltip":"No MPRIS player running","class":"stopped"}' && exit 0
+
+# Function to get PlaybackStatus safely
+get_status() {
+    busctl --user get-property "$1" /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player PlaybackStatus 2>/dev/null  | awk '{$1=""; print $0}' | tr -d '"'
+}
+
+select_player() {
+# Pick a playing player first
+PLAYER=""
+# for p in $PLAYERS; do
+#     [ "$(get_status $p)" == " Playing" ] && { PLAYER="$p"; break; }
+# done
+
+for p in $PLAYERS; do
+    if [ "$(get_status "$p")" = " Playing" ]; then
+        PLAYER="$p"
+        break
+    fi
+done
+
+# [ -z "$PLAYER" ] && for p in $PLAYERS; do
+#     [ "$(get_status $p)" == " Paused" ] && [ "$p" == "org.mpris.MediaPlayer2.mpd" ] && { PLAYER="$p"; break; } || { PLAYER="$p"; }
+# done
+
+
+if [ -z "$PLAYER" ]; then
+    for p in $PLAYERS; do
+        player_status="$(get_status $p)"
+
+    if [ "$player_status" = " Paused" ] && [ "$p" == "org.mpris.MediaPlayer2.mpd" ];then
+        PLAYER="$p"
+        break
+    fi
+
+    if [ -z "$PLAYER" ]; then
+        PLAYER="$p"
+    fi
+    done
+fi
+# echo $PLAYER
+# echo "second" $PLAYER
+
+# If none playing, pick the first running player
+# [ -z "$PLAYER" ] && PLAYER=$(echo "$PLAYERS" | head -n1)
+
+update_last "$PLAYER"
+}
+select_player
+# Get metadata
+STATUS=$(get_status "$PLAYER" | tr '[:upper:]' '[:lower:]')
+TITLE=$(mpris-ctl --player "$PLAYER" info "%track_name")
+ARTIST=$(mpris-ctl --player "$PLAYER" info "%artist_name")
+
+
+# Escape JSON-unsafe characters
+TITLE=$(json_escape "$TITLE")
+ARTIST=$(json_escape "$ARTIST")
+
+# Clean player name
+PLAYER_NAME=$(echo "$PLAYER" | sed 's/org.mpris.MediaPlayer2\.//')
+[ "$PLAYER_NAME" = "mpd" ] && PLAYER_NAME="MPD"
+
+# Icon based on status
+ICON="⏸"
+[ "$STATUS" = "playing" ] && ICON="▶"
+[ "$STATUS" = "stopped" ] && ICON="■"
+
+# Output JSON for Waybar
+echo "{\"text\":\"$ICON $PLAYER_NAME: $TITLE\",\"tooltip\":\"$ARTIST\",\"class\":\"$STATUS\"}"
+
+
+##!/usr/bin/env bash
+
+## Get list of all running MPRIS players
+#PLAYERS=$(busctl --user list | awk '/org.mpris.MediaPlayer2\./ {print $1}')
+
+## Exit if no players
+#if [ -z "$PLAYERS" ]; then
+#    echo '{"text":"■ No player","tooltip":"No MPRIS player running","class":"stopped"}'
+#    exit 0
+#fi
+
+## Find active (playing) player
+## PLAYER=$(mpris-ctl --player active list 2>/dev/null | head -n1)
+#PLAYER=$(mpris-ctl info %player_name 2>/dev/null | head -n1)
+
+## If no active player, pick the first running one
+#[ -z "$PLAYER" ] && PLAYER=$(echo "$PLAYERS" | head -n1)
+
+## PLAYER=$(echo "$PLAYERS" | head -n1)
+## Get metadata
+#STATUS=$(mpris-ctl --player "$PLAYER" status | tr '[:upper:]' '[:lower:]')
+#TITLE=$(mpris-ctl --player "$PLAYER" info "%track_name")
+#ARTIST=$(mpris-ctl --player "$PLAYER" info "%artist_name")
+
+## Clean player name (remove org.mpris.MediaPlayer2.)
+#PLAYER_NAME=$(echo "$PLAYER" | sed 's/org.mpris.MediaPlayer2\.//')
+
+## Override MPD name to remove host info
+## [ "$PLAYER_NAME" = "mpd" ] && PLAYER_NAME="MPD"
+
+## Set icon based on status
+#ICON="⏸"
+#[ "$STATUS" = "playing" ] && ICON="▶"
+#[ "$STATUS" = "stopped" ] && ICON="■"
+
+## Output JSON for Waybar
+#echo "{\"text\":\"$ICON $PLAYER_NAME: $TITLE\",\"tooltip\":\"$ARTIST\",\"class\":\"$STATUS\"}"
+
+
+
+
