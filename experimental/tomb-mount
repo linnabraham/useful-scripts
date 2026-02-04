@@ -1,0 +1,19 @@
+#!/bin/bash
+# open-notes.sh using env variable
+
+# Paths to tomb file and key (can also be env vars if you want)
+TOMB_FILE="${NOTES_TOMB_FILE:-$HOME/notesbox.tomb}"
+TOMB_KEY="${NOTES_TOMB_KEY:-$HOME/notesbox.tomb.key}"
+
+# open tomb if not mounted
+if [ ! -d "$NOTES_TOMB" ]; then
+    if [ -f "$TOMB_FILE" ] && [ -f "$TOMB_KEY" ]; then
+        echo "Opening tomb..."
+        GPG_TTY=$(tty) tomb open "$TOMB_FILE" -k "$TOMB_KEY" -g -f -v
+    else
+        echo "Tomb file or key not found!"
+        exit 1
+    fi
+else
+    echo "Tomb already mounted at $NOTES_TOMB"
+fi
