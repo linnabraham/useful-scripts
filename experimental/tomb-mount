@@ -2,6 +2,8 @@
 # open-notes.sh using env variable
 
 # Paths to tomb file and key (can also be env vars if you want)
+export NOTES_TOMB_FILE=/mnt/linn/work/writings/2025/jun/notesbox.tomb
+export NOTES_TOMB_KEY=/mnt/linn/work/writings/2025/jun/notesbox.tomb.key
 TOMB_FILE="${NOTES_TOMB_FILE:-$HOME/notesbox.tomb}"
 TOMB_KEY="${NOTES_TOMB_KEY:-$HOME/notesbox.tomb.key}"
 
