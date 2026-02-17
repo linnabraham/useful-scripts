@@ -4,9 +4,15 @@ MPC="mpc --quiet -p ${1:-6600}"
 # max height for vertical menu
 height=20
 
+if [ -f $HOME/.dmenurc ]; then
+  . $HOME/.dmenurc
+else
+  DMENU='dmenu -i -l 20'
+fi
+
 DMENU() {
     # Vertical menu if $3 is given
-    echo -e "$1" | dmenu -i -p "$2" ${3:+"-l" "$3"}
+    echo -e "$1" | $DMENU -p "$2" ${3:+"-l" "$3"}
 }
 
 get_playlist() {
