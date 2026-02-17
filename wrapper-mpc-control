@@ -1,11 +1,18 @@
 
 #!/bin/bash
 
+if [ -f $HOME/.dmenurc ]; then
+  . $HOME/.dmenurc
+else
+  DMENU='dmenu -i -l 20'
+fi
+
+
 # Define the options
 options=("Artist" "Composer" "Track" "Next" "Playlist" "Jump" "Longplayer" "Genre")
 
 # Prompt the user to select a mode using dmenu
-selected_mode=$(printf "%s\n" "${options[@]}" | dmenu -i -p "Select Mode:")
+selected_mode=$(printf "%s\n" "${options[@]}" | $DMENU -p "Select Mode:")
 
 # Check the selected mode and call your script accordingly
 case $selected_mode in
