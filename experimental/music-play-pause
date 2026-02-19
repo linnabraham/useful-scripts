@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/media-toggle.state"
+
+# ---------- helpers ----------
+mpd_state() {
+    mpc status 2>/dev/null | sed -n '2p' | awk '{print $1}'
+}
+
+mpd_is_playing() {
+    [[ "$(mpd_state)" == "[playing]" ]]
+}
+
+mpris_playing_player() {
+    for p in $(playerctl -l 2>/dev/null); do
+        if [[ "$(playerctl -p "$p" status 2>/dev/null)" == "Playing" ]]; then
+            echo "$p"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# ---------- resume path ----------
+if [[ -f "$STATE_FILE" ]]; then
+    read -r prev_type prev_name < "$STATE_FILE" || true
+    rm -f "$STATE_FILE"
+
+    case "$prev_type" in
+        mpd)
+            mpc play
+            ;;
+        mpris)
+            playerctl -p "$prev_name" play 2>/dev/null || true
+            ;;
+    esac
+    exit 0
+fi
+
+# ---------- pause path ----------
+if mpd_is_playing; then
+    echo "mpd -" > "$STATE_FILE"
+    mpc pause
+    exit 0
+fi
+
+if player=$(mpris_playing_player); then
+    echo "mpris $player" > "$STATE_FILE"
+    playerctl -p "$player" pause
+    exit 0
+fi
+
+# Nothing playing → do nothing
+exit 0
