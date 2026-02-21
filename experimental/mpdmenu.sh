@@ -98,12 +98,14 @@ else
     $MPC single on
     #echo "single mode turned on"
 fi
+
 }
 shuffle(){
 	$MPC shuffle
 }
+
 repeat(){
-	repeat_mode=$(mpc repeat | grep -o 'repeat: \w*' | cut -d' ' -f2)
+	repeat_mode=$(mpc status | grep -o 'repeat: \w*' | cut -d' ' -f2)
 	if [[ "$repeat_mode" == "off" ]]; then
 		$MPC repeat on
 	else
