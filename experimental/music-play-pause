@@ -22,23 +22,12 @@ mpris_playing_player() {
     return 1
 }
 
-# ---------- resume path ----------
-if [[ -f "$STATE_FILE" ]]; then
-    read -r prev_type prev_name < "$STATE_FILE" || true
-    rm -f "$STATE_FILE"
+anything_playing() {
+    mpd_is_playing || mpris_playing_player >/dev/null
+}
 
-    case "$prev_type" in
-        mpd)
-            mpc play
-            ;;
-        mpris)
-            playerctl -p "$prev_name" play 2>/dev/null || true
-            ;;
-    esac
-    exit 0
-fi
-
-# ---------- pause path ----------
+# ---------- PAUSE PATH (highest priority) ----------
+# If *anything* is playing, pause it
 if mpd_is_playing; then
     echo "mpd -" > "$STATE_FILE"
     mpc pause
@@ -51,5 +40,18 @@ if player=$(mpris_playing_player); then
     exit 0
 fi
 
-# Nothing playing → do nothing
-exit 0
+# ---------- RESUME PATH ----------
+# Only resume if NOTHING is playing
+if [[ -f "$STATE_FILE" ]] && ! anything_playing; then
+    read -r prev_type prev_name < "$STATE_FILE" || true
+    rm -f "$STATE_FILE"
+
+    case "$prev_type" in
+        mpd)
+            mpc play
+            ;;
+        mpris)
+            playerctl -p "$prev_name" play 2>/dev/null || true
+            ;;
+    esac
+fi
