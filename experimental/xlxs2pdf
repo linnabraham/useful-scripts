@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+import tempfile
+import os
+import shutil
+import platform
+
+AUR_HELPERS = ["paru", "yay"]
+
+def have(cmd):
+    return shutil.which(cmd) is not None
+
+def install(pkg, aur=False):
+    if aur:
+        for helper in AUR_HELPERS:
+            if have(helper):
+                subprocess.check_call([helper, "-S", "--noconfirm", pkg])
+                return
+        print("No AUR helper (paru/yay) found", file=sys.stderr)
+        sys.exit(1)
+    else:
+        subprocess.check_call(["sudo", "pacman", "-S", "--noconfirm", pkg])
+
+def ensure():
+    if not have("xlsx2csv"):
+        install("python-xlsx2csv", aur=True)
+
+    if not have("pandoc"):
+        install("pandoc")
+
+def open_pdf(path):
+    if platform.system() == "Darwin":
+        subprocess.call(["open", path])
+    elif platform.system() == "Windows":
+        os.startfile(path)
+    else:
+        subprocess.call(["xdg-open", path])
+
+def main(xlsx):
+    ensure()
+
+    with tempfile.TemporaryDirectory() as tmp:
+        csv = os.path.join(tmp, "sheet.csv")
+        pdf = os.path.join(tmp, "sheet.pdf")
+
+        subprocess.check_call(["xlsx2csv", xlsx, csv])
+        subprocess.check_call(["pandoc", csv, "-o", pdf])
+
+        open_pdf(pdf)
+        input("Press Enter to exit (temp files will be cleaned)…")
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print(f"usage: {sys.argv[0]} file.xlsx")
+        sys.exit(1)
+    main(sys.argv[1])
