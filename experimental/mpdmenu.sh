@@ -113,8 +113,11 @@ repeat(){
 	fi
 }
 
+update(){
+	$MPC update
+}
 while true; do
-	action=$(DMENU "Clear\nAdd\nJump\nPlay\nPause\nStop\nNext\nPrev\nSingle\nRandom\nRepeat" "Do you want to")
+	action=$(DMENU "Clear\nAdd\nJump\nPlay\nPause\nStop\nNext\nPrev\nSingle\nRandom\nRepeat\nUpdate" "Do you want to")
     case $action in
         Clear) $MPC clear;;
         Add) add;;
@@ -126,9 +129,10 @@ while true; do
         Stop) stop;;
         Next) next;;
         Prev) prev;;
-		Single) single;;
-		Random) shuffle;;
-		Repeat) repeat;;
+        Single) single;;
+        Random) shuffle;;
+        Repeat) repeat;;
+        Update) update;;
         "") exit 0;;
     esac
 done

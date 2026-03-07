@@ -150,10 +150,11 @@ case $1 in
     -t|--track)
         
     TITLE=$(mpc list title | sort -f | $DMENU)
-    if [ "$TITLE" = "" ]; then exit; fi
-    
+    if [ "$TITLE" = "" ]; then exit; 
+    else
     SONG=$(mpc find title "$TITLE" | head -1) 
     addaftercurrentandplay "$SONG"
+    fi
     ;;
 
     -n|--nexttrack)

@@ -5,4 +5,5 @@
 url=$(xclip -o --selection primary)
 echo $url
 notify-send "Adding bookmark for $url"
-alacritty -e buku -w 'vim' -a "$url"
+#alacritty -e buku -w 'vim' -a "$url"
+xfce4-terminal -e "buku -w 'vim' -a "$(xclip -o --selection clipboard)""

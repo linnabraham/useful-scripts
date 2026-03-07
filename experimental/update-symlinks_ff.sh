@@ -11,7 +11,7 @@ fi
 FILE_LIST="$1"
 
 # Target directory where the symbolic links will be created
-TARGET_DIR="$HOME/books_symlinks"
+TARGET_DIR="$HOME/zotero-books"
 
 # Create the target directory if it doesn't exist
 mkdir -p "$TARGET_DIR"

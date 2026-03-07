@@ -37,6 +37,6 @@ for line in events.split("\n"):
     print(remaining_minutes)
     if remaining_minutes in NOTIFY_MINS:
         notify_send(
-            f"Upcoming calendar event: {title}",
+            f"Event: {title}",
             f"{matches[0][0]}-{matches[0][1]} in {remaining_minutes} mins.",
         )

@@ -19,7 +19,11 @@ format_time() {
     local H=$((T / 3600))
     local M=$(( (T % 3600) / 60))
     local S=$((T % 60))
-    printf "%02d:%02d:%02d\n" $H $M $S
+    if [ $H -gt 0 ]; then
+        printf "%02d:%02d:%02d\n" $H $M $S
+    else
+        printf "%02d:%02d\n" $M $S
+    fi
 }
 
 icon=""
