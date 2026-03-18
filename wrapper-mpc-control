@@ -1,10 +1,19 @@
 
 #!/bin/bash
 
-if [ -f $HOME/.dmenurc ]; then
-  . $HOME/.dmenurc
+# Ensure HOME is set (may be missing in keybind/WM launch environments)
+export HOME="${HOME:-$(getent passwd "$USER" | cut -d: -f6)}"
+
+# Explicitly set MPD connection so mpc works when launched without a full
+# shell environment (e.g. via a keybind / compositor)
+export MPD_HOST="${MPD_HOST:-localhost}"
+export MPD_PORT="${MPD_PORT:-6600}"
+
+if [ -f "$HOME/.dmenurc" ]; then
+  . "$HOME/.dmenurc"
+  read -r -a DMENU <<< "$DMENU"
 else
-  DMENU='dmenu -i -l 20'
+  DMENU=(dmenu -i -l 20)
 fi
 
 
@@ -12,7 +21,7 @@ fi
 options=("Artist" "Composer" "Track" "Next" "Playlist" "Jump" "Longplayer" "Genre")
 
 # Prompt the user to select a mode using dmenu
-selected_mode=$(printf "%s\n" "${options[@]}" | $DMENU -p "Select Mode:")
+selected_mode=$(printf "%s\n" "${options[@]}" | "${DMENU[@]}" -p "Select Mode:")
 
 # Check the selected mode and call your script accordingly
 case $selected_mode in
