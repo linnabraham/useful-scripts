@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+# break-reminder.sh — Break reminder that only counts ACTIVE time.
+# Idle time pauses the work timer. You only get reminded after N minutes
+# of actual keyboard/mouse activity.
+#
+# Dependencies:
+#   - swayidle      (detects idle on Wayland)
+#   - libnotify     (notify-send)
+#
+# Install deps on Arch:
+#   pacman -S swayidle libnotify
+#
+# Usage:
+#   break-reminder.sh [ACTIVE_MINUTES] [IDLE_THRESHOLD_SECONDS]
+#   break-reminder.sh 20 120     # remind after 20min active, idle=2min
+#   break-reminder.sh            # defaults: 20min active, 120s idle
+#
+# Add to niri config:
+#   spawn-at-startup "break-reminder.sh"
+#
+# Reset timer after a break:
+#   break-reminder.sh --took-break
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CONFIG
+# ──────────────────────────────────────────────────────────────────────────────
+
+ACTIVE_LIMIT_MIN="${1:-20}"          # Remind after this many minutes of active use
+IDLE_THRESHOLD_SECS="${2:-120}"      # Seconds without input = idle (timer pauses)
+POLL_INTERVAL=5                      # How often (secs) the main loop ticks
+
+NOTIFICATION_TIMEOUT=0               # ms; 0 = stays until dismissed
+PAUSE_MEDIA=true                     # Pause playerctl when reminder fires
+
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+ACTIVE_FILE="$STATE_DIR/break-reminder.active"   # persists accumulated active secs
+IDLE_FLAG="$STATE_DIR/break-reminder.idle"        # exists while user is idle
+PID_FILE="$STATE_DIR/break-reminder.pid"
+LOG_FILE="$STATE_DIR/break-reminder.log"
+
+ACTIVE_LIMIT_SECS=$(( ACTIVE_LIMIT_MIN * 60 ))
+
+# ──────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ──────────────────────────────────────────────────────────────────────────────
+
+log()            { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
+get_active_secs(){ [[ -f "$ACTIVE_FILE" ]] && cat "$ACTIVE_FILE" || echo 0; }
+set_active_secs(){ echo "$1" > "$ACTIVE_FILE"; }
+is_idle()        { [[ -f "$IDLE_FLAG" ]]; }
+set_idle()       { touch "$IDLE_FLAG"; }
+clear_idle()     { rm -f "$IDLE_FLAG"; }
+
+notify_break() {
+    local active_min=$(( $(get_active_secs) / 60 ))
+    notify-send \
+        --urgency=critical \
+        --expire-time="$NOTIFICATION_TIMEOUT" \
+        --app-name="Break Reminder" \
+        --icon="appointment-soon" \
+        "** Take a break! **" \
+        "You've been actively working for ${active_min} minutes.\nStep away from the screen.\n\nWhen back: break-reminder.sh --took-break"
+    log "Reminder fired after ${active_min} min of active use"
+}
+
+pause_media() {
+    $PAUSE_MEDIA || return
+    command -v playerctl &>/dev/null && playerctl pause 2>/dev/null
+}
+
+cleanup() {
+    log "Shutting down"
+    kill "$SWAYIDLE_PID" 2>/dev/null
+    rm -f "$PID_FILE" "$IDLE_FLAG"
+    exit 0
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CLI SUBCOMMANDS
+# ──────────────────────────────────────────────────────────────────────────────
+
+case "${1:-}" in
+    --took-break)
+        set_active_secs 0
+        clear_idle
+        notify-send --urgency=low --app-name="Break Reminder" \
+            "✅ Timer reset" "Good. Active work timer restarted."
+        log "Manual break recorded — timer reset"
+        exit 0
+        ;;
+    --status)
+        active=$(get_active_secs)
+        active_min=$(( active / 60 ))
+        active_sec=$(( active % 60 ))
+        remaining=$(( ACTIVE_LIMIT_SECS - active ))
+        remaining_min=$(( remaining / 60 ))
+        idle_state="no"
+        is_idle && idle_state="YES (timer paused)"
+        echo "Active work time : ${active_min}m ${active_sec}s"
+        echo "Limit            : ${ACTIVE_LIMIT_MIN}m"
+        echo "Time until remind: ${remaining_min}m"
+        echo "Currently idle   : ${idle_state}"
+        exit 0
+        ;;
+    --stop)
+        [[ -f "$PID_FILE" ]] && kill "$(cat "$PID_FILE")" && echo "Stopped." || echo "Not running."
+        exit 0
+        ;;
+    --help|-h)
+        cat <<'EOF'
+break-reminder.sh — counts only active (non-idle) time
+
+Usage:
+  break-reminder.sh [ACTIVE_MIN] [IDLE_THRESHOLD_SECS]
+  break-reminder.sh --took-break     Reset timer after a break
+  break-reminder.sh --status         Show current active time / state
+  break-reminder.sh --stop           Stop the running daemon
+
+Defaults: 20 min active limit, 120s idle threshold
+EOF
+        exit 0
+        ;;
+esac
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PREVENT DUPLICATE INSTANCES
+# ──────────────────────────────────────────────────────────────────────────────
+
+if [[ -f "$PID_FILE" ]]; then
+    old_pid=$(cat "$PID_FILE")
+    if kill -0 "$old_pid" 2>/dev/null; then
+        echo "Already running (PID $old_pid). Use --stop first."
+        exit 1
+    fi
+fi
+
+echo $$ > "$PID_FILE"
+set_active_secs 0
+clear_idle
+
+log "Started — limit=${ACTIVE_LIMIT_MIN}min, idle_threshold=${IDLE_THRESHOLD_SECS}s"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SWAYIDLE — sets/clears the idle flag
+# swayidle fires:
+#   timeout N CMD   — after N seconds of no input → mark idle
+#   resume CMD      — when input resumes           → clear idle
+# ──────────────────────────────────────────────────────────────────────────────
+
+swayidle -w \
+    timeout "$IDLE_THRESHOLD_SECS" "touch '$IDLE_FLAG'" \
+    resume "rm -f '$IDLE_FLAG'" \
+    &
+SWAYIDLE_PID=$!
+log "swayidle started (PID $SWAYIDLE_PID)"
+
+trap cleanup SIGTERM SIGINT
+
+# ──────────────────────────────────────────────────────────────────────────────
+# MAIN LOOP
+# ──────────────────────────────────────────────────────────────────────────────
+
+REMINDER_FIRED=false
+
+while true; do
+    sleep "$POLL_INTERVAL"
+
+    if is_idle; then
+        # Timer is paused while idle — just log and skip
+        log "idle — active=$(get_active_secs)s (paused)"
+        continue
+    fi
+
+    # Active: accumulate time
+    current=$(get_active_secs)
+    new=$(( current + POLL_INTERVAL ))
+    set_active_secs "$new"
+    log "active=${new}s / limit=${ACTIVE_LIMIT_SECS}s"
+
+    # First time crossing the limit
+    if (( new >= ACTIVE_LIMIT_SECS )) && ! $REMINDER_FIRED; then
+        pause_media
+        notify_break
+        REMINDER_FIRED=true
+    fi
+
+    # Re-fire every interval after the first reminder (nag until they reset)
+    if $REMINDER_FIRED; then
+        overage=$(( new - ACTIVE_LIMIT_SECS ))
+        if (( overage > 0 && overage % ACTIVE_LIMIT_SECS < POLL_INTERVAL )); then
+            pause_media
+            notify_break
+        fi
+    fi
+done
