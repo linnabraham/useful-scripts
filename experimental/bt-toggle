@@ -1,0 +1,23 @@
+#!/bin/bash
+
+if systemctl is-active --quiet bluetooth; then
+    # Turn Bluetooth OFF
+
+    pkill blueman-applet 2>/dev/null
+    pkill blueman-manager 2>/dev/null
+
+    sudo systemctl stop bluetooth
+
+    notify-send "Bluetooth disabled"
+
+else
+    # Turn Bluetooth ON
+
+    sudo systemctl start bluetooth
+
+    # restart tray icon if you want it
+    blueman-applet &
+
+    notify-send "Bluetooth enabled"
+
+fi
