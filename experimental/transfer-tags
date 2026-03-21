@@ -1,0 +1,560 @@
+#!/usr/bin/env python3
+"""
+transfer_tags.py — Match tagged MP3s to new Opus files by acoustic fingerprint
+and transfer all metadata including cover art.
+
+Dependencies:
+    pip install pyacoustid mutagen
+    sudo apt install libchromaprint-tools   # provides fpcalc
+
+Usage:
+    # Dry run — shows all matches including already-tagged files:
+    transfer-tags --mp3-dir ~/Music/library --opus-dir ~/Music/incoming --dry-run
+
+    # Real run — skips already-tagged opus files:
+    transfer-tags --mp3-dir ~/Music/library --opus-dir ~/Music/incoming
+
+    # Real run — overwrite even already-tagged opus files:
+    transfer-tags --mp3-dir ~/Music/library --opus-dir ~/Music/incoming --overwrite
+
+    # Single opus file:
+    transfer-tags --mp3-dir ~/Music/library --opus-file ~/Music/incoming/song.opus
+
+    # Force re-fingerprint all mp3s (e.g. after bulk retagging):
+    transfer-tags --mp3-dir ~/Music/library --opus-dir ~/Music/incoming --rebuild-cache
+"""
+
+import os
+import sys
+import gc
+import json
+import base64
+import argparse
+import logging
+import resource
+from pathlib import Path
+from dataclasses import dataclass, asdict
+from typing import Optional
+
+try:
+    import acoustid
+except ImportError:
+    sys.exit("Missing: pip install pyacoustid")
+
+try:
+    from mutagen.id3 import ID3, ID3NoHeaderError
+    from mutagen.mp3 import MP3
+    from mutagen.oggopus import OggOpus
+    from mutagen.flac import Picture
+except ImportError:
+    sys.exit("Missing: pip install mutagen")
+
+# ──────────────────────────────────────────────
+# Raise file descriptor limit to avoid OSError 24
+# ──────────────────────────────────────────────
+def raise_fd_limit():
+    try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if soft < 4096:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (min(4096, hard), hard))
+    except Exception:
+        pass
+
+raise_fd_limit()
+
+# ──────────────────────────────────────────────
+# Logging
+# ──────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
+
+# ──────────────────────────────────────────────
+# ID3 to Vorbis comment field mapping
+# ──────────────────────────────────────────────
+ID3_TO_VORBIS = {
+    "TIT2": "TITLE",
+    "TPE1": "ARTIST",
+    "TPE2": "ALBUMARTIST",
+    "TALB": "ALBUM",
+    "TDRC": "DATE",
+    "TRCK": "TRACKNUMBER",
+    "TPOS": "DISCNUMBER",
+    "TCON": "GENRE",
+    "COMM": "COMMENT",
+    "TCOM": "COMPOSER",
+    "TLYC": "LYRICS",
+    "TLAN": "LANGUAGE",
+    "TCOP": "COPYRIGHT",
+    "TENC": "ENCODEDBY",
+    "TBPM": "BPM",
+    "TPUB": "ORGANIZATION",
+    "TSRC": "ISRC",
+    "TKEY": "KEY",
+    "TMOO": "MOOD",
+    "TSOT": "TITLESORT",
+    "TSOP": "ARTISTSORT",
+    "TSOA": "ALBUMSORT",
+}
+
+# ──────────────────────────────────────────────
+# Data structures
+# ──────────────────────────────────────────────
+@dataclass
+class MatchResult:
+    opus_file: str
+    matched_mp3: Optional[str] = None
+    confidence: float = 0.0
+    mp3_bitrate: Optional[int] = None
+    tags_written: bool = False
+    cover_written: bool = False
+    error: Optional[str] = None
+    skipped: bool = False
+    skip_reason: Optional[str] = None
+
+
+# ──────────────────────────────────────────────
+# Fingerprinting
+# ──────────────────────────────────────────────
+def fingerprint_file(path: str):
+    """
+    Returns (duration, fingerprint) tuple or None on failure.
+    gc.collect() after each call to release file descriptors.
+    """
+    try:
+        result = acoustid.fingerprint_file(path)
+        return result
+    except acoustid.FingerprintGenerationError as e:
+        log.warning(f"Could not fingerprint {path}: {e}")
+        return None
+    except Exception as e:
+        log.warning(f"Unexpected fingerprint error for {path}: {e}")
+        return None
+    finally:
+        gc.collect()
+
+
+# ──────────────────────────────────────────────
+# Fingerprint cache
+# ──────────────────────────────────────────────
+DEFAULT_CACHE_FILE = ".transfer_tags_cache.json"
+
+def load_cache(cache_path: str) -> dict:
+    if not os.path.exists(cache_path):
+        return {}
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        log.info(f"Loaded cache with {len(data)} entries from {cache_path}")
+        return data
+    except Exception as e:
+        log.warning(f"Could not load cache {cache_path}: {e} -- starting fresh")
+        return {}
+
+
+def save_cache(cache: dict, cache_path: str):
+    try:
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+        log.info(f"Cache saved ({len(cache)} entries) to {cache_path}")
+    except Exception as e:
+        log.warning(f"Could not save cache: {e}")
+
+
+def build_mp3_library(mp3_dir: str, cache_path: str, rebuild: bool = False) -> list:
+    """
+    Scan mp3_dir for all .mp3 files and fingerprint them.
+    Uses a cache keyed by path+mtime to avoid re-fingerprinting unchanged files.
+    Returns list of {path, fp_tuple} dicts.
+    """
+    mp3_files = sorted(Path(mp3_dir).glob("*.mp3"))
+    if not mp3_files:
+        log.warning(f"No .mp3 files found in {mp3_dir}")
+        return []
+
+    cache = {} if rebuild else load_cache(cache_path)
+    library = []
+    new_entries = 0
+    cache_hits = 0
+
+    log.info(f"Processing {len(mp3_files)} MP3 files...")
+
+    for i, mp3_path in enumerate(mp3_files, 1):
+        path_str = str(mp3_path)
+        mtime = mp3_path.stat().st_mtime
+
+        if not rebuild and path_str in cache:
+            entry = cache[path_str]
+            if entry.get("mtime") == mtime:
+                duration, fp = entry["fp_tuple"]
+                # JSON stores strings; acoustid.compare_fingerprints needs bytes
+                if isinstance(fp, str):
+                    fp = fp.encode("ascii")
+                library.append({
+                    "path": path_str,
+                    "fp_tuple": (duration, fp),
+                })
+                cache_hits += 1
+                continue
+
+        log.info(f"  [{i}/{len(mp3_files)}] Fingerprinting: {mp3_path.name}")
+        result = fingerprint_file(path_str)
+        if result:
+            duration, fp = result
+            fp_tuple = (duration, fp)
+            library.append({"path": path_str, "fp_tuple": fp_tuple})
+            fp_serializable = fp.decode("ascii") if isinstance(fp, bytes) else fp
+            cache[path_str] = {
+                "mtime": mtime,
+                "fp_tuple": [duration, fp_serializable],
+            }
+            new_entries += 1
+        else:
+            log.warning(f"  Skipping (fingerprint failed): {mp3_path.name}")
+
+    if cache_hits:
+        log.info(f"Cache hits: {cache_hits}, newly fingerprinted: {new_entries}")
+
+    save_cache(cache, cache_path)
+    log.info(f"Library ready: {len(library)} files")
+    return library
+
+
+# ──────────────────────────────────────────────
+# Matching
+# ──────────────────────────────────────────────
+def find_best_match(opus_fp_tuple, library, threshold=0.7):
+    opus_duration = opus_fp_tuple[0]
+    best_entry = None
+    best_score = 0.0
+
+    for entry in library:
+        if abs(entry["fp_tuple"][0] - opus_duration) > 10:
+            continue
+        try:
+            score = acoustid.compare_fingerprints(opus_fp_tuple, entry["fp_tuple"])
+        except Exception as e:
+            log.debug(f"compare_fingerprints error for {entry['path']}: {e}")
+            continue
+        if score > best_score:
+            best_score = score
+            best_entry = entry
+
+    if best_score >= threshold:
+        return best_entry, best_score
+    return None, best_score
+
+
+# ──────────────────────────────────────────────
+# Tag reading
+# ──────────────────────────────────────────────
+def read_mp3_bitrate(mp3_path: str) -> Optional[int]:
+    """Return bitrate in kbps, or None on failure."""
+    try:
+        audio = MP3(mp3_path)
+        return int(audio.info.bitrate / 1000)
+    except Exception:
+        return None
+
+
+def read_mp3_tags(mp3_path: str):
+    tag_dict = {}
+    cover_bytes = None
+    cover_mime = None
+
+    try:
+        tags = ID3(mp3_path)
+    except ID3NoHeaderError:
+        log.warning(f"No ID3 tags in {mp3_path}")
+        return tag_dict, cover_bytes, cover_mime
+    except Exception as e:
+        log.warning(f"Could not read ID3 from {mp3_path}: {e}")
+        return tag_dict, cover_bytes, cover_mime
+
+    for frame_id, vorbis_key in ID3_TO_VORBIS.items():
+        matching = [v for k, v in tags.items() if k.startswith(frame_id)]
+        if matching:
+            values = [str(frame) for frame in matching if str(frame)]
+            if values:
+                tag_dict[vorbis_key] = values
+
+    apic_frames = [v for k, v in tags.items() if k.startswith("APIC")]
+    if apic_frames:
+        front = next((f for f in apic_frames if f.type == 3), apic_frames[0])
+        cover_bytes = front.data
+        cover_mime = front.mime or "image/jpeg"
+
+    return tag_dict, cover_bytes, cover_mime
+
+
+# ──────────────────────────────────────────────
+# Tag writing
+# ──────────────────────────────────────────────
+def write_opus_tags(opus_path, tag_dict, cover_bytes, cover_mime, dry_run=False):
+    if not tag_dict and not cover_bytes:
+        log.warning(f"Nothing to write for {opus_path}")
+        return False, False
+
+    if dry_run:
+        log.info(f"  [DRY RUN] Would write {len(tag_dict)} tag fields to {os.path.basename(opus_path)}")
+        if cover_bytes:
+            log.info(f"  [DRY RUN] Would write cover art ({len(cover_bytes)//1024}KB)")
+        return True, cover_bytes is not None
+
+    try:
+        audio = OggOpus(opus_path)
+    except Exception as e:
+        log.error(f"Could not open opus file {opus_path}: {e}")
+        return False, False
+
+    for key, values in tag_dict.items():
+        audio[key] = values
+
+    tags_written = True
+    cover_written = False
+
+    if cover_bytes:
+        try:
+            pic = Picture()
+            pic.type = 3
+            pic.mime = cover_mime or "image/jpeg"
+            pic.data = cover_bytes
+            pic_data = base64.b64encode(pic.write()).decode("ascii")
+            audio["METADATA_BLOCK_PICTURE"] = [pic_data]
+            cover_written = True
+        except Exception as e:
+            log.warning(f"Could not embed cover art: {e}")
+
+    try:
+        audio.save()
+    except Exception as e:
+        log.error(f"Could not save {opus_path}: {e}")
+        return False, False
+
+    return tags_written, cover_written
+
+
+# ──────────────────────────────────────────────
+# commit.sh generation
+# ──────────────────────────────────────────────
+def generate_commit_script(results: list, commit_path: str, dest_dir: str):
+    matched = [r for r in results if r.matched_mp3 and r.tags_written and not r.skipped]
+    if not matched:
+        log.info("No successful matches -- no commit.sh generated")
+        return
+
+    lines = [
+        "#!/bin/bash",
+        "# commit.sh -- generated by transfer-tags",
+        "# Review carefully before running: sh commit.sh",
+        "# Each block: moves tagged opus to library, deletes matched mp3",
+        f"# Destination: {dest_dir}",
+        "",
+        "set -e  # stop on first error",
+        "",
+    ]
+
+    for r in matched:
+        opus_name = os.path.basename(r.opus_file)
+        mp3_name = os.path.basename(r.matched_mp3)
+        bitrate_str = f"{r.mp3_bitrate} kbps" if r.mp3_bitrate else "unknown kbps"
+        flag = "✓ safe to delete" if r.mp3_bitrate and r.mp3_bitrate <= 128 else "⚠ review before deleting"
+        lines.append(f"# {mp3_name}  ->  {opus_name}  (confidence: {r.confidence:.3f})")
+        lines.append(f"# MP3 bitrate: {bitrate_str}  {flag}")
+        rm_line = f'rm "{r.matched_mp3}"'
+        if r.mp3_bitrate and r.mp3_bitrate > 128:
+            rm_line += "  # FLAGGED"
+        lines.append(f'mv "{r.opus_file}" "{dest_dir}/"')
+        lines.append(rm_line)
+        lines.append("")
+
+    with open(commit_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    os.chmod(commit_path, 0o755)
+
+    log.info(f"commit.sh written to {commit_path} ({len(matched)} operations)")
+    log.info(f"Review it, then run: sh {commit_path}")
+
+
+# ──────────────────────────────────────────────
+# Main processing
+# ──────────────────────────────────────────────
+def process_opus_file(opus_path, library, threshold, dry_run, overwrite):
+    result = MatchResult(opus_file=opus_path)
+
+    # Skip already-tagged files only during a real run, not dry-run.
+    # dry-run always shows what would match so you can see the full picture.
+    if not dry_run and not overwrite:
+        try:
+            existing = OggOpus(opus_path)
+            if existing.tags and len(existing.tags) > 0:
+                result.skipped = True
+                result.skip_reason = "already has tags (use --overwrite to force)"
+                log.info(f"  Skipping (already tagged): {os.path.basename(opus_path)}")
+                return result
+        except Exception:
+            pass
+
+    log.info(f"Processing: {os.path.basename(opus_path)}")
+
+    fp_tuple = fingerprint_file(opus_path)
+    if not fp_tuple:
+        result.error = "fingerprint generation failed"
+        log.error(f"  Failed to fingerprint: {os.path.basename(opus_path)}")
+        return result
+
+    match, confidence = find_best_match(fp_tuple, library, threshold)
+
+    if not match:
+        result.error = f"no match found above threshold {threshold} (best was {confidence:.3f})"
+        log.warning(f"  No match -- best score was {confidence:.3f} (threshold {threshold})")
+        return result
+
+    result.matched_mp3 = match["path"]
+    result.confidence = confidence
+    bitrate = read_mp3_bitrate(match["path"])
+    result.mp3_bitrate = bitrate
+    bitrate_str = f"{bitrate} kbps" if bitrate else "unknown kbps"
+    flag = "✓ safe to delete" if bitrate and bitrate <= 128 else "⚠ review before deleting"
+    log.info(f"  Matched: {os.path.basename(match['path'])} (confidence {confidence:.3f}, {bitrate_str} {flag})")
+
+    tag_dict, cover_bytes, cover_mime = read_mp3_tags(match["path"])
+
+    if not tag_dict and not cover_bytes:
+        result.error = "matched MP3 has no tags to transfer"
+        log.warning(f"  Matched MP3 has no tags: {match['path']}")
+        return result
+
+    tags_written, cover_written = write_opus_tags(
+        opus_path, tag_dict, cover_bytes, cover_mime, dry_run=dry_run
+    )
+
+    result.tags_written = tags_written
+    result.cover_written = cover_written
+
+    if tags_written:
+        log.info(f"  Wrote {len(tag_dict)} tag fields" + (" [DRY RUN]" if dry_run else ""))
+    if cover_written:
+        log.info(f"  Wrote cover art" + (" [DRY RUN]" if dry_run else ""))
+
+    return result
+
+
+def run(args):
+    mp3_dir = str(Path(args.mp3_dir).resolve())
+    dest_dir = mp3_dir
+
+    if args.opus_file:
+        opus_files = [str(Path(args.opus_file).resolve())]
+    elif args.opus_dir:
+        opus_dir = str(Path(args.opus_dir).resolve())
+        opus_files = [str(p) for p in Path(opus_dir).glob("*.opus")]
+        if not opus_files:
+            log.error(f"No .opus files found in {opus_dir}")
+            sys.exit(1)
+    else:
+        log.error("Provide --opus-dir or --opus-file")
+        sys.exit(1)
+
+    log.info(f"Found {len(opus_files)} opus file(s) to process")
+
+    cache_path = os.path.join(mp3_dir, DEFAULT_CACHE_FILE)
+    library = build_mp3_library(mp3_dir, cache_path, rebuild=args.rebuild_cache)
+    if not library:
+        log.error("No fingerprinted MP3s -- nothing to match against")
+        sys.exit(1)
+
+    results = []
+    for opus_path in sorted(opus_files):
+        r = process_opus_file(
+            opus_path,
+            library,
+            threshold=args.threshold,
+            dry_run=args.dry_run,
+            overwrite=args.overwrite,
+        )
+        results.append(r)
+
+    matched = [r for r in results if r.matched_mp3 and r.tags_written and not r.skipped]
+    failed  = [r for r in results if r.error]
+    skipped = [r for r in results if r.skipped]
+
+    print("\n" + "-" * 60)
+    print(f"  Total opus files  : {len(results)}")
+    print(f"  Matched & tagged  : {len(matched)}")
+    print(f"  Skipped           : {len(skipped)}")
+    print(f"  No match found    : {len([r for r in failed if 'no match' in (r.error or '')])}")
+    print(f"  Errors            : {len([r for r in failed if 'no match' not in (r.error or '')])}")
+    if args.dry_run:
+        print("  *** DRY RUN -- no files were modified ***")
+    print("-" * 60)
+
+    if failed:
+        print("\nFailed / Unmatched (tag manually with puddletag):")
+        for r in failed:
+            print(f"  {os.path.basename(r.opus_file)}: {r.error}")
+
+    if args.report:
+        report_data = [asdict(r) for r in results]
+        with open(args.report, "w", encoding="utf-8") as f:
+            json.dump(report_data, f, ensure_ascii=False, indent=2)
+        log.info(f"Report written to {args.report}")
+
+    if not args.dry_run and matched:
+        commit_path = args.commit or "commit.sh"
+        generate_commit_script(results, commit_path, dest_dir)
+
+
+# ──────────────────────────────────────────────
+# CLI
+# ──────────────────────────────────────────────
+def main():
+    parser = argparse.ArgumentParser(
+        description="Transfer ID3 tags from MP3s to matching Opus files using acoustic fingerprinting",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    parser.add_argument("--mp3-dir", required=True,
+        help="Directory containing your tagged MP3 files (the active library)")
+
+    opus_group = parser.add_mutually_exclusive_group(required=True)
+    opus_group.add_argument("--opus-dir",
+        help="Directory containing incoming Opus files to tag")
+    opus_group.add_argument("--opus-file",
+        help="Single Opus file to tag")
+
+    parser.add_argument("--threshold", type=float, default=0.7,
+        help="Minimum fingerprint match confidence 0.0-1.0 (default: 0.7)")
+    parser.add_argument("--dry-run", action="store_true",
+        help="Show matches without writing tags (ignores already-tagged check)")
+    parser.add_argument("--overwrite", action="store_true",
+        help="Overwrite tags even if the opus file already has them")
+    parser.add_argument("--rebuild-cache", action="store_true",
+        help="Re-fingerprint all MP3s ignoring the cache")
+    parser.add_argument("--report",
+        help="Save a JSON report of all results to this path")
+    parser.add_argument("--commit",
+        help="Path for generated commit.sh (default: ./commit.sh)")
+    parser.add_argument("--verbose", action="store_true",
+        help="Enable debug logging")
+
+    args = parser.parse_args()
+
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    if not os.path.isdir(args.mp3_dir):
+        parser.error(f"--mp3-dir does not exist: {args.mp3_dir}")
+    if args.opus_dir and not os.path.isdir(args.opus_dir):
+        parser.error(f"--opus-dir does not exist: {args.opus_dir}")
+    if args.opus_file and not os.path.isfile(args.opus_file):
+        parser.error(f"--opus-file does not exist: {args.opus_file}")
+
+    run(args)
+
+
+if __name__ == "__main__":
+    main()
