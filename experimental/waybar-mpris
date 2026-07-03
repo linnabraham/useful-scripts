@@ -46,18 +46,23 @@ done
 
 
 if [ -z "$PLAYER" ]; then
-    for p in $PLAYERS; do
-        player_status="$(get_status $p)"
-
-    if [ "$player_status" = " Paused" ] && [ "$p" == "org.mpris.MediaPlayer2.mpd" ];then
-        PLAYER="$p"
-        break
+    LAST="$(get_last)"
+    # Prefer the last active player if it's still running and paused
+    if [ -n "$LAST" ] && echo "$PLAYERS" | grep -qF "$LAST"; then
+        last_status="$(get_status "$LAST")"
+        [ "$last_status" = " Paused" ] && PLAYER="$LAST"
     fi
-
+    # Fall back to first paused player, then first running player
     if [ -z "$PLAYER" ]; then
-        PLAYER="$p"
+        for p in $PLAYERS; do
+            player_status="$(get_status "$p")"
+            if [ "$player_status" = " Paused" ]; then
+                PLAYER="$p"
+                break
+            fi
+            [ -z "$PLAYER" ] && PLAYER="$p"
+        done
     fi
-    done
 fi
 # echo $PLAYER
 # echo "second" $PLAYER
